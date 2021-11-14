@@ -2,7 +2,11 @@ import './style.css'
 
 // Imports Three JS library & OrbitControls, vital for our 3D designs
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import vertexShader from './shaders/vertex.glsl'
+import fragmentShader from './shaders/fragment.glsl'
+import atmVertexShader from './shaders/atmvertex.glsl'
+import atmFragmentShader from './shaders/atmfragment.glsl'
+import gsap from 'gsap'
 
 // Creates new scene
 const scene = new THREE.Scene();
@@ -13,6 +17,7 @@ const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.inner
 // Creates the renderer, and sets the canvas (bg)
 const renderer = new THREE.WebGLRenderer({
   canvas: document.querySelector('#bg'),
+  antialias: true
 });
 
 // Scales the renderer and properly sizes it
@@ -20,18 +25,10 @@ renderer.setPixelRatio( window.devicePixelRatio );
 renderer.setSize ( window.innerWidth, window.innerHeight );
 
 // Sets the position of the camera on the Z axis
-camera.position.setZ(30);
+camera.position.setZ(15);
 
 // Tells the renderer to render the scene and camera
 renderer.render( scene, camera );
-
-// Creates variables that define the shape (torus)
-const geometry = new THREE.TorusGeometry( 10, 3, 16, 100 );
-const material = new THREE.MeshPhongMaterial( { color: 0xFF6347 } ); 
-const torus = new THREE.Mesh( geometry, material );
-
-// Adds the shape (torus) into the scene
-scene.add(torus);
 
 // Adds a point light and sets its position
 const pointLight = new THREE.PointLight(0xffffff);
@@ -41,40 +38,47 @@ pointLight.position.set(20,20,20);
 const ambientLight = new THREE.AmbientLight(0xffffff);
 scene.add(pointLight, ambientLight);
 
-// Adds a Light Helper which supports the point light - Grid Helper creates Grid
-const lightHelper = new THREE.PointLightHelper(pointLight);
-const gridHelper = new THREE.GridHelper(200,200);
-scene.add(lightHelper, gridHelper);
+const earth = new THREE.Mesh(
+  new THREE.SphereGeometry(3, 32, 32),
+  new THREE.ShaderMaterial( {
+    vertexShader,
+    fragmentShader,
+    uniforms: {
+      globeTexture: {
+        value: new THREE.TextureLoader().load('01-3.jpeg')
+      }
+    }
+  })
+);
 
-// Orbit Controls to update positioning according to mouse movement
-const controls = new OrbitControls(camera, renderer.domElement);
+const atmosphere = new THREE.Mesh(
+  new THREE.SphereGeometry(3, 32, 32),
+  new THREE.ShaderMaterial( {
+    vertexShader: atmVertexShader,
+    fragmentShader: atmFragmentShader,
+    blending: THREE.AdditiveBlending,
+    side: THREE.BackSide
+  })
+);
 
-// Function to add stars
-function addStar() {
-  const geometry = new THREE.SphereGeometry(0.25, 24, 24);
-  const material = new THREE.MeshBasicMaterial( { color: 0xffffff } );
-  const star = new THREE.Mesh( geometry, material );
+atmosphere.scale.set(1.1, 1.1, 1.1)
 
-  const [x, y, z] = Array(3).fill().map(() => THREE.MathUtils.randFloatSpread( 100 ) );
-  star.position.set(x, y, z);
-  scene.add(star)
+scene.add(atmosphere);
+
+const group = new THREE.Group()
+group.add(earth)
+scene.add(group)
+
+const mouse = {
+  x: undefined,
+  y: undefined
 }
-
-Array(200).fill().forEach(addStar)
-
-const spaceTexture = new THREE.TextureLoader().load('space-2.jpeg');
 
 // A function to repeat this action and create an animation
 function animate() {
   requestAnimationFrame( animate );
-
-  torus.rotation.x += 0.01;
-  torus.rotation.y += 0.005;
-  torus.rotation.z += 0.01;
-
-  controls.update();
-
   renderer.render( scene, camera );
+  earth.rotation.y += 0.005;
 }
 
 animate()
